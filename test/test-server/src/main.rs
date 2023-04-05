@@ -5,6 +5,7 @@ use crate::greeter_server::{Greeter, GreeterServer};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{transport::Server, Request, Response, Status};
+use tonic_web::GrpcWebLayer;
 
 tonic::include_proto!("helloworld");
 tonic::include_proto!("grpc.examples.echo");
@@ -55,8 +56,8 @@ impl Echo for MyEcho {
             tx.send(Ok(EchoResponse {
                 message: message.clone(),
             }))
-            .await
-            .unwrap();
+                .await
+                .unwrap();
             tokio::time::sleep(Duration::from_secs(1)).await;
             tx.send(Ok(EchoResponse { message })).await.unwrap();
         });
@@ -87,12 +88,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let greeter = MyGreeter::default();
     let echo = MyEcho::default();
 
-    let config = tonic_web::config().allow_all_origins();
-
     Server::builder()
         .accept_http1(true)
-        .add_service(config.enable(GreeterServer::new(greeter)))
-        .add_service(config.enable(EchoServer::new(echo)))
+        .layer(GrpcWebLayer::new())
+        .add_service(GreeterServer::new(greeter))
+        .add_service(EchoServer::new(echo))
         .serve("127.0.0.1:8080".parse().unwrap())
         .await?;
 
